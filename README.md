@@ -66,4 +66,3 @@ For production deployment, build the frontend using:
 ```bash
 yarn build
 ```
-# word-up-frontend

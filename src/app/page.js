@@ -1,113 +1,238 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 
 export default function Home() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [history, setHistory] = useState([]);
+  const [error, setError] = useState("");
+  const [isDrawerOpen, setIsDrawerOpen] = useState(true);
+  const [wordData, setWordData] = useState({
+    word: "",
+    partOfSpeech: "",
+    definition: "",
+    examples: [],
+    synonyms: [],
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setIsDrawerOpen(false);
+      } else {
+        setIsDrawerOpen(true);
+      }
+    };
+
+    handleResize();
+
+    window.addEventListener("resize", handleResize);
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const handleSearch = async () => {
+    const isValid = /^[A-Za-z]+$/.test(searchTerm);
+
+    if (!isValid) {
+      setError(
+        "Please enter a valid word (letters only, no numbers or special characters)."
+      );
+      return;
+    }
+
+    if (searchTerm.trim() !== "") {
+      try {
+        const response = await fetch(
+          `http://localhost:3000/words?word=${searchTerm}`,
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch word data");
+        }
+
+        const data = await response.json();
+
+        setWordData({
+          word: data.word,
+          partOfSpeech: data.results[0].partOfSpeech || "",
+          definition: data.results[0].definition || "No definition available",
+          examples: data.results[0].examples || [],
+          synonyms: data.results[0].synonyms || [],
+        });
+
+        const currentDateTime = new Date().toLocaleString();
+        const updatedHistory = history.filter(
+          (item) => item.term.toLowerCase() !== searchTerm.toLowerCase()
+        );
+        setHistory([
+          { term: searchTerm, date: currentDateTime },
+          ...updatedHistory,
+        ]);
+        setError("");
+      } catch (error) {
+        setError(
+          "There was an error fetching the word data. Please try again later."
+        );
+      }
+    }
+  };
+
+  const handleSynonymClick = (synonym) => {
+    setSearchTerm(synonym);
+    handleSearch(synonym);
+  };
+
+  const handleHistoryClick = (term) => {
+    setSearchTerm(term);
+    setError("");
+  };
+
+  const handleRemoveHistoryItem = (termToRemove) => {
+    setHistory(history.filter((item) => item.term !== termToRemove));
+  };
+
+  const handleClearHistory = () => {
+    setHistory([]);
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.js</code>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-6 relative">
+      <div className="w-full max-w-md h-[35dvh] flex flex-col items-center justify-center">
+        <h1 className="text-5xl font-extrabold mb-6 text-blue-600">Word Up</h1>
+        <p className="text-lg text-gray-700 mb-8 text-center max-w-xl">
+          Welcome to <span className="font-bold text-blue-500">Word Up</span> –
+          your ultimate tool to enhance your vocabulary! Search for any word to
+          find its definition, explore usage examples, and discover alternative
+          words (synonyms) to expand your language skills.
         </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        <div className="w-full max-w-md">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Enter a word to search..."
+            className="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2 text-black"
+          />
+          {error && <p className="text-red-500 mb-4">{error}</p>}
+          <button
+            onClick={handleSearch}
+            className="w-full bg-blue-500 text-white p-3 rounded-md hover:bg-blue-600 transition duration-200"
           >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+            Search
+          </button>
         </div>
       </div>
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
+      {/* div that contains the returned definition, part of speech, examples, and synonyms */}
+      {wordData.word && (
+        <div className="w-full max-w-md min-h-[35dvh] mt-6 p-6 bg-white rounded-md shadow-lg">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            Word: <span className="text-blue-600">{wordData.word}</span>
+          </h2>
+
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-700">
+              Part of Speech:
+            </h3>
+            <p className="text-gray-600">{wordData.partOfSpeech}</p>
+          </div>
+
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-700">Definition:</h3>
+            <p className="text-gray-600">{wordData.definition}</p>
+          </div>
+
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-700">Examples:</h3>
+            <ul className="list-disc list-inside text-gray-600">
+              {wordData.examples.length > 0 ? (
+                wordData.examples.map((example, index) => (
+                  <li key={index}>{example}</li>
+                ))
+              ) : (
+                <li>No examples available.</li>
+              )}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold text-gray-700">Synonyms:</h3>
+            {wordData?.synonyms?.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {wordData?.synonyms?.map((synonym, index) => (
+                  <span
+                    key={index}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent triggering the click on the term
+                      handleSynonymClick(synonym);
+                    }}
+                    className="cursor-pointer text-blue-500 hover:text-blue-700 transition-colors duration-200"
+                  >
+                    {synonym}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Drawer for Search History */}
+      <div
+        className={`fixed top-0 right-0 w-72 bg-white shadow-lg h-full transform ${
+          isDrawerOpen ? "translate-x-0" : "translate-x-full"
+        } transition-transform duration-300 ease-in-out z-50`}
+      >
+        <div className="p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-gray-800">Search History</h2>
+            <button
+              onClick={handleClearHistory}
+              className="text-sm text-red-500 hover:underline"
+            >
+              Clear History
+            </button>
+          </div>
+          <div className="max-h-[70vh] overflow-y-auto space-y-4">
+            {history.map(({ term, date }, index) => (
+              <motion.div
+                key={index}
+                className="flex justify-between items-center p-3 rounded-md bg-gray-200 cursor-pointer hover:bg-gray-300 hover:scale-105 transition-all duration-200"
+                whileHover={{ scale: 0.99 }}
+                onClick={() => handleHistoryClick(term)}
+              >
+                <div>
+                  <p className="text-blue-600 font-semibold">{term}</p>
+                  <p className="text-gray-500 text-sm">{date}</p>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemoveHistoryItem(term);
+                  }}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  &times;
+                </button>
+              </motion.div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800 hover:dark:bg-opacity-30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+      <button
+        className="fixed top-4 right-4 bg-blue-500 text-white p-2 rounded-md shadow-lg z-50 block md:hidden"
+        onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+      >
+        {isDrawerOpen ? "Close" : "History"}
+      </button>
+    </div>
   );
 }
